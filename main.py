@@ -169,6 +169,18 @@ def get_updates():
     return http_get(BASE_URL + "getUpdates", params)
 
 
+def skip_old_updates():
+    global last_update_id
+    try:
+        data = http_get(BASE_URL + "getUpdates", {"timeout": 1})
+        results = data.get("result", [])
+        if results:
+            last_update_id = results[-1]["update_id"]
+            print("Old updates skipped up to:", last_update_id)
+    except Exception as e:
+        print("Skip old updates error:", e)
+
+
 def is_box_line(line):
     line = line.strip().lower()
     patterns = [
@@ -187,7 +199,7 @@ def is_track_like(line):
     line = line.strip()
     if not line or " " in line:
         return False
-    return bool(re.fullmatch(r"[A-Za-z0-9\\-]{8,35}", line))
+    return bool(re.fullmatch(r"[A-Za-z0-9\-]{8,35}", line))
 
 
 def normalize_box_name(raw):
@@ -389,19 +401,19 @@ def compare_box(chat_id, box_name):
     lines.append("━━━━━━━━━━━━━━━━━━━")
     lines.append("")
     lines.append(f"✅ Дар ҳарду ҳаст ({len(matched)}):")
-    lines.append("\\n".join(matched) if matched else "нест")
+    lines.append("\n".join(matched) if matched else "нест")
     lines.append("")
     lines.append(f"❌ Дар склад ҳаст, дар ПВЗ нест ({len(warehouse_only)}):")
-    lines.append("\\n".join(warehouse_only) if warehouse_only else "нест")
+    lines.append("\n".join(warehouse_only) if warehouse_only else "нест")
     lines.append("")
     lines.append(f"⚠️ Дар ПВЗ ҳаст, дар склад нест ({len(pvz_only)}):")
-    lines.append("\\n".join(pvz_only) if pvz_only else "нест")
+    lines.append("\n".join(pvz_only) if pvz_only else "нест")
     lines.append("")
     lines.append(f"🔁 Дубликат ({len(duplicates)}):")
-    lines.append("\\n".join(duplicates) if duplicates else "нест")
+    lines.append("\n".join(duplicates) if duplicates else "нест")
     lines.append("")
     lines.append(f"🚫 Хато ({len(invalid)}):")
-    lines.append("\\n".join(invalid) if invalid else "нест")
+    lines.append("\n".join(invalid) if invalid else "нест")
     lines.append("")
     lines.append("━━━━━━━━━━━━━━━━━━━")
     lines.append("📊 Summary")
@@ -412,7 +424,7 @@ def compare_box(chat_id, box_name):
     lines.append(f"Разница: {len(warehouse_only) + len(pvz_only)}")
     lines.append("━━━━━━━━━━━━━━━━━━━")
 
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def compare_latest_common_box(chat_id):
@@ -471,12 +483,12 @@ def status_text(chat_id):
     last_comp = last_comp_row[0] if last_comp_row else "нест"
 
     return (
-        "📊 Статус\\n\\n"
-        f"📦 Коробкаҳо дар склад: {warehouse_boxes}\\n"
-        f"🏪 Коробкаҳо дар ПВЗ: {pvz_boxes}\\n"
-        f"🔢 Ҳама трекҳо: {total_tracks}\\n\\n"
-        f"🗂 Охирин коробка:\\n{last_box}\\n\\n"
-        f"🕒 Охирин санҷиш:\\n{last_comp}"
+        "📊 Статус\n\n"
+        f"📦 Коробкаҳо дар склад: {warehouse_boxes}\n"
+        f"🏪 Коробкаҳо дар ПВЗ: {pvz_boxes}\n"
+        f"🔢 Ҳама трекҳо: {total_tracks}\n\n"
+        f"🗂 Охирин коробка:\n{last_box}\n\n"
+        f"🕒 Охирин санҷиш:\n{last_comp}"
     )
 
 
@@ -484,7 +496,7 @@ def boxes_text(chat_id):
     names = get_all_box_names(chat_id)
     if not names:
         return "🗂 Ҳоло коробка нест."
-    return "🗂 Рӯйхати коробкаҳо\\n\\n" + "\\n".join(f"• {name}" for name in names)
+    return "🗂 Рӯйхати коробкаҳо\n\n" + "\n".join(f"• {name}" for name in names)
 
 
 def search_track(chat_id, track_code):
@@ -512,10 +524,10 @@ def search_track(chat_id, track_code):
     source_text = "Склад" if source == "warehouse" else "ПВЗ"
 
     return (
-        f"🔎 Трек: {track_code}\\n"
-        f"📦 Коробка: {box_name}\\n"
-        f"📍 Манбаъ: {source_text}\\n"
-        f"🏪 ПВЗ: {pvz_name or 'не указано'}\\n"
+        f"🔎 Трек: {track_code}\n"
+        f"📦 Коробка: {box_name}\n"
+        f"📍 Манбаъ: {source_text}\n"
+        f"🏪 ПВЗ: {pvz_name or 'не указано'}\n"
         f"📅 Охирин сабт: {date_value or 'не указана'}"
     )
 
@@ -560,7 +572,7 @@ def process_box_input(chat_id, source, text):
     parsed = parse_input_block(text)
 
     if not parsed["tracks"] and not parsed["invalid"]:
-        send_message(chat_id, "❌ Маълумот хонда нашуд.\\nЛутфан форматро тафтиш кунед.", keyboard=build_keyboard())
+        send_message(chat_id, "❌ Маълумот хонда нашуд.\nЛутфан форматро тафтиш кунед.", keyboard=build_keyboard())
         return
 
     pvz_name = "ПВЗ" if source == "pvz" else None
@@ -569,12 +581,12 @@ def process_box_input(chat_id, source, text):
     source_text = "Склад" if source == "warehouse" else "ПВЗ"
 
     msg = (
-        "✅ Қабул шуд\\n\\n"
-        f"📍 Манбаъ: {source_text}\\n"
-        f"📦 Коробка: {parsed['box_name']}\\n"
-        f"📅 Сана: {parsed['date_value'] or 'не указана'}\\n"
-        f"📊 Трекҳо: {len(parsed['tracks'])}\\n"
-        f"🔁 Дубликат: {len(parsed['duplicates'])}\\n"
+        "✅ Қабул шуд\n\n"
+        f"📍 Манбаъ: {source_text}\n"
+        f"📦 Коробка: {parsed['box_name']}\n"
+        f"📅 Сана: {parsed['date_value'] or 'не указана'}\n"
+        f"📊 Трекҳо: {len(parsed['tracks'])}\n"
+        f"🔁 Дубликат: {len(parsed['duplicates'])}\n"
         f"🚫 Хато: {len(parsed['invalid'])}"
     )
     send_message(chat_id, msg, keyboard=build_keyboard())
@@ -601,7 +613,7 @@ def process_message(message):
         chat_states[chat_id] = "warehouse_input"
         send_message(
             chat_id,
-            "📦 Режими склад фаъол шуд\\n\\nМатнро фиристед:\\nКоробка + трекҳо",
+            "📦 Режими склад фаъол шуд\n\nМатнро фиристед:\nКоробка + трекҳо",
             keyboard=keyboard
         )
         return
@@ -610,7 +622,7 @@ def process_message(message):
         chat_states[chat_id] = "pvz_input"
         send_message(
             chat_id,
-            "🏪 Режими ПВЗ фаъол шуд\\n\\nМатнро фиристед:\\nКаробка + сана + трекҳо",
+            "🏪 Режими ПВЗ фаъол шуд\n\nМатнро фиристед:\nКаробка + сана + трекҳо",
             keyboard=keyboard
         )
         return
@@ -662,6 +674,7 @@ def main():
     global last_update_id
 
     init_db()
+    skip_old_updates()
     print("Telegram bot started...")
 
     while True:
