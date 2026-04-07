@@ -23,7 +23,7 @@ DB_PATH = "daryo_telegram_bot.db"
 # PVZ = танҳо ПВЗ
 ROLES = {
     5845509194: "ADMIN",       # ID-и худат
-    111111111: "WAREHOUSE",   # ID-и админи склад
+    8114877860: "WAREHOUSE",   # ID-и админи склад
     222222222: "PVZ"          # ID-и админи ПВЗ
 }
 
