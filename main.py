@@ -9,15 +9,33 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import os
 
+# =========================
+# CONFIG
+# =========================
+
 TOKEN = "8793536113:AAHfGiKp0GG5VgDnJhlNWCysiqIVa6Cxp-I"
 BASE_URL = f"https://api.telegram.org/bot{TOKEN}/"
 DB_PATH = "daryo_telegram_bot.db"
+
+# Telegram user roles:
+# ADMIN = ҳама чиз
+# WAREHOUSE = танҳо склад
+# PVZ = танҳо ПВЗ
+ROLES = {
+    8793536113: "ADMIN",       # ID-и худат
+    111111111: "WAREHOUSE",   # ID-и админи склад
+    222222222: "PVZ"          # ID-и админи ПВЗ
+}
 
 last_update_id = None
 chat_states = {}
 temp_context = {}
 processed_updates = set()
 
+
+# =========================
+# SIMPLE WEB SERVER FOR RENDER
+# =========================
 
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -35,6 +53,10 @@ def run_web_server():
     server = HTTPServer(("0.0.0.0", port), SimpleHandler)
     server.serve_forever()
 
+
+# =========================
+# DB
+# =========================
 
 def db_connect():
     conn = sqlite3.connect(DB_PATH)
@@ -88,6 +110,10 @@ def init_db():
     conn.close()
 
 
+# =========================
+# TELEGRAM HTTP
+# =========================
+
 def http_get(url, params=None):
     if params:
         params = {k: v for k, v in params.items() if v is not None}
@@ -123,6 +149,59 @@ def send_message(chat_id, text, keyboard=None):
     http_post(BASE_URL + "sendMessage", payload)
 
 
+# =========================
+# HELPERS
+# =========================
+
+def get_user_role(user_id):
+    return ROLES.get(user_id, "GUEST")
+
+
+def build_keyboard(role):
+    if role == "ADMIN":
+        return {
+            "keyboard": [
+                [{"text": "📦 Склад"}, {"text": "🏪 ПВЗ"}],
+                [{"text": "🔍 Проверка"}, {"text": "📊 Статус"}],
+                [{"text": "🗂 Коробкаҳо"}, {"text": "🔎 Ҷустуҷӯи трек"}],
+                [{"text": "🧹 Очистить"}]
+            ],
+            "resize_keyboard": True,
+            "one_time_keyboard": False
+        }
+
+    elif role == "WAREHOUSE":
+        return {
+            "keyboard": [
+                [{"text": "📦 Склад"}],
+                [{"text": "📊 Статус"}],
+                [{"text": "🗂 Коробкаҳо"}]
+            ],
+            "resize_keyboard": True,
+            "one_time_keyboard": False
+        }
+
+    elif role == "PVZ":
+        return {
+            "keyboard": [
+                [{"text": "🏪 ПВЗ"}],
+                [{"text": "📊 Статус"}],
+                [{"text": "🗂 Коробкаҳо"}]
+            ],
+            "resize_keyboard": True,
+            "one_time_keyboard": False
+        }
+
+    else:
+        return {
+            "keyboard": [
+                [{"text": "🚫 Нет доступа"}]
+            ],
+            "resize_keyboard": True,
+            "one_time_keyboard": False
+        }
+
+
 def split_message(text, limit=3500):
     if len(text) <= limit:
         return [text]
@@ -147,19 +226,6 @@ def send_long_message(chat_id, text, keyboard=None):
     parts = split_message(text)
     for i, part in enumerate(parts):
         send_message(chat_id, part, keyboard=keyboard if i == len(parts) - 1 else None)
-
-
-def build_keyboard():
-    return {
-        "keyboard": [
-            [{"text": "📦 Склад"}, {"text": "🏪 ПВЗ"}],
-            [{"text": "🔍 Проверка"}, {"text": "📊 Статус"}],
-            [{"text": "🗂 Коробкаҳо"}, {"text": "🔎 Ҷустуҷӯи трек"}],
-            [{"text": "🧹 Очистить"}]
-        ],
-        "resize_keyboard": True,
-        "one_time_keyboard": False
-    }
 
 
 def get_updates():
@@ -193,10 +259,14 @@ def is_new_update(update_id):
     processed_updates.add(update_id)
 
     if len(processed_updates) > 1000:
-        processed_updates = set(list(processed_updates)[-500:])
+        processed_updates.clear()
 
     return True
 
+
+# =========================
+# PARSING
+# =========================
 
 def is_box_line(line):
     line = line.strip().lower()
@@ -263,6 +333,10 @@ def parse_input_block(text):
         "invalid": invalid
     }
 
+
+# =========================
+# DB OPERATIONS
+# =========================
 
 def save_box(chat_id, source, parsed, pvz_name=None):
     conn = db_connect()
@@ -374,6 +448,10 @@ def save_comparison(chat_id, box_name, pvz_name, warehouse_count, pvz_count, mat
     conn.commit()
     conn.close()
 
+
+# =========================
+# BOT FEATURES
+# =========================
 
 def compare_box(chat_id, box_name):
     wh = get_latest_box_by_name(chat_id, "warehouse", box_name)
@@ -567,14 +645,17 @@ def clear_all(chat_id):
 
 
 def send_welcome(chat_id, user):
-    keyboard = build_keyboard()
+    user_id = user["id"]
+    role = get_user_role(user_id)
+    keyboard = build_keyboard(role)
+
     username = user.get("username")
     first_name = user.get("first_name", "дӯст")
     display_name = f"@{username}" if username else first_name
 
     send_message(
         chat_id,
-        f"Салом 😊\nХуш омадед, {display_name}!\nТугмачаро интихоб кунед 👇",
+        f"Салом 😊\nХуш омадед, {display_name}!\n👤 Роль: {role}\nТугмачаро интихоб кунед 👇",
         keyboard=keyboard
     )
 
@@ -583,13 +664,15 @@ def process_box_input(chat_id, source, text):
     parsed = parse_input_block(text)
 
     if not parsed["tracks"] and not parsed["invalid"]:
-        send_message(chat_id, "❌ Маълумот хонда нашуд.\nЛутфан форматро тафтиш кунед.", keyboard=build_keyboard())
+        role = get_user_role(chat_id)
+        send_message(chat_id, "❌ Маълумот хонда нашуд.\nЛутфан форматро тафтиш кунед.", keyboard=build_keyboard(role))
         return
 
     pvz_name = "ПВЗ" if source == "pvz" else None
     save_box(chat_id, source, parsed, pvz_name=pvz_name)
 
     source_text = "Склад" if source == "warehouse" else "ПВЗ"
+    role = get_user_role(chat_id)
 
     msg = (
         "✅ Қабул шуд\n\n"
@@ -600,20 +683,29 @@ def process_box_input(chat_id, source, text):
         f"🔁 Дубликат: {len(parsed['duplicates'])}\n"
         f"🚫 Хато: {len(parsed['invalid'])}"
     )
-    send_message(chat_id, msg, keyboard=build_keyboard())
+    send_message(chat_id, msg, keyboard=build_keyboard(role))
 
+
+# =========================
+# MESSAGE PROCESSOR
+# =========================
 
 def process_message(message):
     chat_id = message["chat"]["id"]
     text = message.get("text", "").strip()
     user = message.get("from", {})
+    user_id = user["id"]
+    role = get_user_role(user_id)
+    keyboard = build_keyboard(role)
 
     if chat_id not in chat_states:
         chat_states[chat_id] = None
     if chat_id not in temp_context:
         temp_context[chat_id] = {}
 
-    keyboard = build_keyboard()
+    if role == "GUEST":
+        send_message(chat_id, "⚠️ Барои шумо иҷозат нест.")
+        return
 
     if text == "/start":
         chat_states[chat_id] = None
@@ -621,6 +713,10 @@ def process_message(message):
         return
 
     if text == "📦 Склад":
+        if role not in ["ADMIN", "WAREHOUSE"]:
+            send_message(chat_id, "⚠️ Барои шумо иҷозат нест", keyboard=keyboard)
+            return
+
         chat_states[chat_id] = "warehouse_input"
         send_message(
             chat_id,
@@ -630,6 +726,10 @@ def process_message(message):
         return
 
     if text == "🏪 ПВЗ":
+        if role not in ["ADMIN", "PVZ"]:
+            send_message(chat_id, "⚠️ Барои шумо иҷозат нест", keyboard=keyboard)
+            return
+
         chat_states[chat_id] = "pvz_input"
         send_message(
             chat_id,
@@ -639,6 +739,10 @@ def process_message(message):
         return
 
     if text == "🔍 Проверка":
+        if role != "ADMIN":
+            send_message(chat_id, "⚠️ Танҳо админ метавонад", keyboard=keyboard)
+            return
+
         result = compare_latest_common_box(chat_id)
         send_long_message(chat_id, result, keyboard=keyboard)
         return
@@ -652,11 +756,19 @@ def process_message(message):
         return
 
     if text == "🔎 Ҷустуҷӯи трек":
+        if role != "ADMIN":
+            send_message(chat_id, "⚠️ Танҳо админ метавонад", keyboard=keyboard)
+            return
+
         chat_states[chat_id] = "search_track"
         send_message(chat_id, "🔎 Трекро фиристед.", keyboard=keyboard)
         return
 
     if text == "🧹 Очистить":
+        if role != "ADMIN":
+            send_message(chat_id, "⚠️ Танҳо админ метавонад", keyboard=keyboard)
+            return
+
         clear_all(chat_id)
         chat_states[chat_id] = None
         send_message(chat_id, "🧹 Ҳама маълумот тоза шуд.", keyboard=keyboard)
@@ -680,6 +792,10 @@ def process_message(message):
 
     send_message(chat_id, "Лутфан тугмачаро интихоб кунед.", keyboard=keyboard)
 
+
+# =========================
+# MAIN
+# =========================
 
 def main():
     global last_update_id
