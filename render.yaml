@@ -1,0 +1,9 @@
+services:
+  - type: worker
+    name: daryo-bot
+    env: python
+    plan: free
+    startCommand: python main.py
+    envVars:
+      - key: TOKEN
+        sync: false
