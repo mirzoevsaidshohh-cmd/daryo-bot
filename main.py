@@ -163,7 +163,10 @@ def build_keyboard():
 
 def get_updates():
     global last_update_id
-    params = {"timeout": 20}
+    params = {
+    "timeout": 20,
+    "limit": 1
+    }
     if last_update_id is not None:
         params["offset"] = last_update_id + 1
     return http_get(BASE_URL + "getUpdates", params)
@@ -686,10 +689,17 @@ def main():
                 continue
 
             for update in updates["result"]:
-                try:
-                    last_update_id = update["update_id"]
-                    if "message" in update:
-                        process_message(update["message"])
+    try:
+        update_id = update["update_id"]
+
+        # 👇 skip duplicate updates
+        if last_update_id is not None and update_id <= last_update_id:
+            continue
+
+        last_update_id = update_id
+
+        if "message" in update:
+            process_message(update["message"])
                 except Exception as e:
                     print("Message error:", e)
 
