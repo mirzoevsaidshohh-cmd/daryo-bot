@@ -11,9 +11,7 @@ from threading import Thread
 
 # ---------- CONFIG ----------
 
-TOKEN = os.getenv("8793536113:AAHwEQ-NNfyG9W4YbkrG6HdOpJFVXx_OeDY")
-if not TOKEN:
-    raise ValueError("8793536113:AAHwEQ-NNfyG9W4YbkrG6HdOpJFVXx_OeDY")
+TOKEN = "8793536113:AAHs32IIkY0mtuuM3aGeZKti9WwyNIWTXlo"
 
 BASE_URL = f"https://api.telegram.org/bot{TOKEN}/"
 DB_PATH = "daryo_telegram_bot.db"
