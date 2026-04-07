@@ -154,7 +154,7 @@ def send_message(chat_id, text, keyboard=None):
 # =========================
 
 def get_user_role(user_id):
-    return ROLES.get(user_id, "GUEST")
+    return "ADMIN"
 
 
 def build_keyboard(role):
