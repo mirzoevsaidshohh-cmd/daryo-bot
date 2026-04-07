@@ -647,6 +647,13 @@ def clear_all(chat_id):
 def send_welcome(chat_id, user):
     user_id = user["id"]
     role = get_user_role(user_id)
+
+    send_message(
+        chat_id,
+        f"Салом 😊\n\n🆔 ID: {user_id}\n👤 Роль: {role}"
+    )
+    user_id = user["id"]
+    role = get_user_role(user_id)
     keyboard = build_keyboard(role)
 
     username = user.get("username")
