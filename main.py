@@ -9,7 +9,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import os
 
-TOKEN = "8793536113:AAHs32IIkY0mtuuM3aGeZKti9WwyNIWTXlo"
+TOKEN = "8793536113:AAHfGiKp0GG5VgDnJhlNWCysiqIVa6Cxp-I"
 BASE_URL = f"https://api.telegram.org/bot{TOKEN}/"
 DB_PATH = "daryo_telegram_bot.db"
 
