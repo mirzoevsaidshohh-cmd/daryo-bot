@@ -16,6 +16,7 @@ DB_PATH = "daryo_telegram_bot.db"
 last_update_id = None
 chat_states = {}
 temp_context = {}
+processed_updates = set()
 
 
 class SimpleHandler(BaseHTTPRequestHandler):
@@ -164,8 +165,8 @@ def build_keyboard():
 def get_updates():
     global last_update_id
     params = {
-    "timeout": 20,
-    "limit": 1
+        "timeout": 20,
+        "limit": 1
     }
     if last_update_id is not None:
         params["offset"] = last_update_id + 1
@@ -182,6 +183,19 @@ def skip_old_updates():
             print("Old updates skipped up to:", last_update_id)
     except Exception as e:
         print("Skip old updates error:", e)
+
+
+def is_new_update(update_id):
+    global processed_updates
+    if update_id in processed_updates:
+        return False
+
+    processed_updates.add(update_id)
+
+    if len(processed_updates) > 1000:
+        processed_updates = set(list(processed_updates)[-500:])
+
+    return True
 
 
 def is_box_line(line):
@@ -558,17 +572,11 @@ def send_welcome(chat_id, user):
     first_name = user.get("first_name", "дӯст")
     display_name = f"@{username}" if username else first_name
 
-    send_chat_action(chat_id, "typing")
-    time.sleep(0.5)
-    send_message(chat_id, "Салом 😊")
-
-    send_chat_action(chat_id, "typing")
-    time.sleep(0.5)
-    send_message(chat_id, f"Хуш омадед, {display_name}!")
-
-    send_chat_action(chat_id, "typing")
-    time.sleep(0.5)
-    send_message(chat_id, "Тугмачаро интихоб кунед 👇", keyboard=keyboard)
+    send_message(
+        chat_id,
+        f"Салом 😊\nХуш омадед, {display_name}!\nТугмачаро интихоб кунед 👇",
+        keyboard=keyboard
+    )
 
 
 def process_box_input(chat_id, source, text):
@@ -689,17 +697,16 @@ def main():
                 continue
 
             for update in updates["result"]:
-    try:
-        update_id = update["update_id"]
+                try:
+                    update_id = update["update_id"]
 
-        # 👇 skip duplicate updates
-        if last_update_id is not None and update_id <= last_update_id:
-            continue
+                    if not is_new_update(update_id):
+                        continue
 
-        last_update_id = update_id
+                    last_update_id = update_id
 
-        if "message" in update:
-            process_message(update["message"])
+                    if "message" in update:
+                        process_message(update["message"])
                 except Exception as e:
                     print("Message error:", e)
 
